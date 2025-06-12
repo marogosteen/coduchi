@@ -1,0 +1,9 @@
+{
+	"name": "coduchi",
+	"dockerComposeFile": "compose.yaml",
+	"workspaceFolder": "/workspaces/coduchi",
+	"service": "app",
+	"features": {
+		"ghcr.io/devcontainers/features/rust:1": {}
+	}
+}

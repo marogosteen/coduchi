@@ -1,0 +1,10 @@
+services:
+  app:
+    image: coduchi:latest
+    container_name: coduchi
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ..:/workspaces/coduchi:cached
+    command: sleep infinity
