@@ -1,6 +1,7 @@
 use clap::Parser;
 use std::path::PathBuf;
 
+/// Coduchi CLI引数
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
 pub struct Cli {
@@ -22,16 +23,14 @@ pub struct Cli {
 }
 
 impl Cli {
-    pub fn get_dir_name(&self) -> String {
-        self.dir
-            .file_name()
-            .and_then(|name| name.to_str())
-            .unwrap_or("unknown")
-            .to_string()
-    }
-
-    pub fn get_container_name(&self) -> String {
-        self.name.clone().unwrap_or_else(|| self.get_dir_name())
+    /// CLI引数をApplication層のリクエストに変換する
+    pub fn to_request(self) -> crate::application::GenerateDevContainerRequest {
+        crate::application::GenerateDevContainerRequest {
+            dir: self.dir,
+            name: self.name,
+            base_image: self.base_image,
+            force: self.force,
+        }
     }
 }
 
@@ -43,33 +42,36 @@ mod tests {
     fn test_cli_parse() {
         let args = vec!["coduchi", "--name", "test", "--dir", "test-dir", "--force"];
         let cli = Cli::parse_from(args);
-        
+
         assert_eq!(cli.name, Some("test".to_string()));
         assert_eq!(cli.dir, PathBuf::from("test-dir"));
         assert!(cli.force);
     }
 
     #[test]
-    fn test_get_dir_name() {
-        let cli = Cli {
-            dir: PathBuf::from("test-dir"),
-            name: None,
-            base_image: None,
-            force: false,
-        };
-        
-        assert_eq!(cli.get_dir_name(), "test-dir");
+    fn test_cli_defaults() {
+        let args = vec!["coduchi"];
+        let cli = Cli::parse_from(args);
+
+        assert_eq!(cli.name, None);
+        assert_eq!(cli.dir, PathBuf::from("."));
+        assert_eq!(cli.base_image, None);
+        assert!(!cli.force);
     }
 
     #[test]
-    fn test_get_container_name() {
+    fn test_to_request() {
         let cli = Cli {
             dir: PathBuf::from("test-dir"),
-            name: Some("custom-name".to_string()),
-            base_image: None,
-            force: false,
+            name: Some("test-container".to_string()),
+            base_image: Some("ubuntu:latest".to_string()),
+            force: true,
         };
-        
-        assert_eq!(cli.get_container_name(), "custom-name");
+
+        let request = cli.to_request();
+        assert_eq!(request.dir, PathBuf::from("test-dir"));
+        assert_eq!(request.name, Some("test-container".to_string()));
+        assert_eq!(request.base_image, Some("ubuntu:latest".to_string()));
+        assert!(request.force);
     }
-}
+} 
