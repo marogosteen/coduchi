@@ -5,5 +5,19 @@
 	"service": "app",
 	"features": {
 		"ghcr.io/devcontainers/features/rust:1": {}
+	},
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"mhutchie.git-graph",
+				"donjayamanne.githistory",
+				"VisualStudioExptTeam.vscodeintellicode",
+				"VisualStudioExptTeam.intellicode-api-usage-examples",
+				"eamodio.gitlens",
+				"tamasfe.even-better-toml",
+				"rust-lang.rust-analyzer",
+				"vadimcn.vscode-lldb"
+			]
+		}
 	}
 }
