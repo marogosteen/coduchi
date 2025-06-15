@@ -12,14 +12,14 @@ impl DevContainerGenerator {
   "name": "{}",
   "dockerComposeFile": "compose.yaml",
   "workspaceFolder": "{}",
-  "service": "{}",
+  "service": "app",
   "customizations": {{
     "vscode": {{
       "extensions": []
     }}
   }}
 }}"#,
-            config.name, config.workspace_folder, config.service
+            config.name, config.workspace_folder
         );
 
         GeneratedFile::new("devcontainer.json".to_string(), content)

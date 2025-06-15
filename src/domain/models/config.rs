@@ -33,7 +33,6 @@ impl AppConfig {
 pub struct DevContainerConfig {
     pub name: String,
     pub workspace_folder: String,
-    pub service: String,
 }
 
 impl DevContainerConfig {
@@ -41,7 +40,6 @@ impl DevContainerConfig {
         Self {
             name,
             workspace_folder: format!("/workspaces/{}", dir_name),
-            service: "app".to_string(),
         }
     }
 }
@@ -130,6 +128,5 @@ mod tests {
         
         assert_eq!(config.name, "test-app");
         assert_eq!(config.workspace_folder, "/workspaces/test-dir");
-        assert_eq!(config.service, "app");
     }
 } 
