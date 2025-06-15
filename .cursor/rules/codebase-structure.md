@@ -52,13 +52,15 @@ src/
 **最も内側の層** - 外部依存ゼロ、ビジネスロジックの中核
 
 - **`models/`** - ドメインエンティティとビジネスオブジェクト
-  - `AppConfig`: アプリケーション設定
-  - `Template`, `TemplateInfo`: テンプレート情報
+  - `ComposeConfig`: Docker Compose設定（CLI引数に基づく）
+  - `DevContainerConfig`: Dev Container設定
+  - `ComposeConfigBuilder`: 設定構築ビルダーパターン
+  - `DevContainerTemplate`, `ImageConfiguration`: Dev Containerテンプレート情報
   - `GeneratedFile`: 生成ファイル表現
-  - `ConfigBuilder`: 設定構築ビルダーパターン
+  - `GenerationResult`: ファイル生成結果
 
 - **`ports/`** - 抽象インターフェース（DIPの核心）
-  - `TemplateRepository`: テンプレート取得抽象
+  - `DevContainerTemplateRepository`: Dev Containerテンプレート取得抽象
   - `FileRepository`: ファイル操作抽象
   - `UserInteraction`: ユーザー対話抽象
   - `ProgressReporter`: 進捗報告抽象
@@ -79,7 +81,7 @@ src/
 **外部システム依存の実装** - ポート（抽象）の具象実装
 
 - **`repositories/`** - データアクセス実装
-  - `GitHubTemplateRepository`: GitHub API実装
+  - `GitHubTemplateRepository`: GitHub API経由のDev Containerテンプレート取得実装
   - `FileSystemRepository`: ファイルシステム実装
 
 - **`ui/`** - ユーザーインターフェース実装
@@ -123,15 +125,22 @@ UseCase → TemplateRepository (抽象) ← GitHubTemplateRepository (具象)
 
 #### ドメインモデル (`domain/models/`)
 ```rust
-pub struct AppConfig {
+pub struct ComposeConfig {
     pub dir: PathBuf,
+    pub name: String,
     pub container_name: String,
     pub dir_name: String,
+    pub image_name: String,
     pub base_image: String,
     pub force: bool,
 }
 
-pub struct ConfigBuilder {
+pub struct DevContainerConfig {
+    pub name: String,
+    pub workspace_folder: String,
+}
+
+pub struct ComposeConfigBuilder {
     // ビルダーパターンで安全な設定構築
 }
 
@@ -139,13 +148,19 @@ pub struct GeneratedFile {
     pub filename: String,
     pub content: String,
 }
+
+pub struct GenerationResult {
+    pub files: Vec<GeneratedFile>,
+    pub success: bool,
+    pub message: String,
+}
 ```
 
 #### ポート定義 (`domain/ports/`)
 ```rust
 #[async_trait]
-pub trait TemplateRepository: Send + Sync {
-    async fn fetch_templates(&self) -> Result<Vec<Template>>;
+pub trait DevContainerTemplateRepository: Send + Sync {
+    async fn fetch_templates(&self) -> Result<Vec<DevContainerTemplate>>;
 }
 
 #[async_trait]
@@ -156,7 +171,7 @@ pub trait FileRepository: Send + Sync {
 
 #[async_trait]
 pub trait UserInteraction: Send + Sync {
-    async fn select_base_image(&self, templates: Vec<Template>) -> Result<String>;
+    async fn select_base_image(&self, templates: Vec<DevContainerTemplate>) -> Result<String>;
     fn show_progress(&self, message: &str);
 }
 
@@ -172,7 +187,7 @@ pub trait ProgressReporter: Send + Sync {
 #### ユースケース (`application/use_cases/`)
 ```rust
 pub struct GenerateDevContainerUseCase {
-    template_repo: Arc<dyn TemplateRepository>,
+    template_repo: Arc<dyn DevContainerTemplateRepository>,
     file_repo: Arc<dyn FileRepository>,
     user_interaction: Arc<dyn UserInteraction>,
     progress_reporter: Arc<dyn ProgressReporter>,
@@ -195,8 +210,8 @@ pub struct GitHubTemplateRepository {
 }
 
 #[async_trait]
-impl TemplateRepository for GitHubTemplateRepository {
-    async fn fetch_templates(&self) -> Result<Vec<Template>> {
+impl DevContainerTemplateRepository for GitHubTemplateRepository {
+    async fn fetch_templates(&self) -> Result<Vec<DevContainerTemplate>> {
         // GitHub API具象実装
     }
 }
@@ -216,7 +231,7 @@ impl FileRepository for FileSystemRepository {
 #### DI容器 (`presentation/container.rs`)
 ```rust
 pub struct Container {
-    template_repo: Arc<dyn TemplateRepository>,
+    template_repo: Arc<dyn DevContainerTemplateRepository>,
     file_repo: Arc<dyn FileRepository>,
     user_interaction: Arc<dyn UserInteraction>,
     progress_reporter: Arc<dyn ProgressReporter>,
@@ -269,8 +284,8 @@ impl Container {
 ```rust
 // 純粋関数のテスト（外部依存なし）
 #[test]
-fn test_config_builder() {
-    let config = ConfigBuilder::new(PathBuf::from("test"))
+fn test_compose_config_builder() {
+    let config = ComposeConfigBuilder::new(PathBuf::from("test"))
         .with_name(Some("container".to_string()))
         .build("ubuntu:latest".to_string());
     
@@ -284,7 +299,7 @@ fn test_config_builder() {
 #[tokio::test]
 async fn test_generate_devcontainer_use_case() {
     let use_case = GenerateDevContainerUseCase::new(
-        Arc::new(MockTemplateRepository::new()),
+        Arc::new(MockDevContainerTemplateRepository::new()),
         Arc::new(MockFileRepository::new()),
         Arc::new(MockUserInteraction::new()),
         Arc::new(MockProgressReporter::new()),
@@ -358,7 +373,7 @@ Infrastructure + Presentation
 ## 🚀 将来の拡張ポイント
 
 ### 短期的な拡張
-- **新しいポート追加**: `ConfigValidator`, `TemplateCache`
+- **新しいポート追加**: `ConfigValidator`, `DevContainerTemplateCache`
 - **複数インフラ実装**: Azure DevOps, GitLab CI対応
 - **設定フォーマット拡張**: YAML, TOML設定サポート
 
