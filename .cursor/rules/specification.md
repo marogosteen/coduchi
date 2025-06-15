@@ -129,8 +129,8 @@ $ coduchi
 **GenerateDevContainerUseCase**が以下のフローを実装：
 
 1. **設定構築** - `ConfigBuilder`による段階的な設定構築
-2. **ベースイメージ選択** - `DevContainerTemplateRepository`ポート経由
-3. **上書き確認** - `FileRepository`ポート経由  
+2. **上書き確認** - `FileRepository`ポート経由（ファイルが存在する場合のみ）
+3. **ベースイメージ選択** - `DevContainerTemplateRepository`ポート経由
 4. **ファイル生成** - `DevContainerGenerator`ドメインサービス
 5. **書き込み実行** - `FileRepository`ポート経由
 6. **進捗報告** - `ProgressReporter`ポート経由
@@ -269,9 +269,9 @@ FROM <base-image>
 ## 対話式プロンプト
 オプションが指定されていない場合、以下の項目を対話式で確認：
 
-1. ベースイメージの選択
+1. 既存ファイルの上書き確認（ファイルが存在する場合のみ）
+2. ベースイメージの選択
    - 一覧表示
-2. 既存ファイルの上書き確認
 
 ## エラーハンドリング
 

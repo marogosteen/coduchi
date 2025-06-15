@@ -53,7 +53,7 @@ impl GenerateDevContainerUseCase {
 
     /// メインの実行処理
     pub async fn execute(&self, request: GenerateDevContainerRequest) -> Result<GenerateDevContainerResponse> {
-        // Step 1: 設定の構築
+        // Step 1: 設定の構築（仮のベースイメージで先に作成）
         let config_builder = ComposeConfigBuilder::new(request.dir)
             .with_name(request.name)
             .with_image_name(request.image_name)
@@ -61,17 +61,9 @@ impl GenerateDevContainerUseCase {
             .with_base_image(request.base_image)
             .with_force(request.force);
 
-        // Step 2: 必要に応じてベースイメージを対話的に選択
-        let base_image = if config_builder.needs_base_image() {
-            self.select_base_image_interactively().await?
-        } else {
-            config_builder.get_base_image().unwrap().clone()
-        };
-
-        let config = config_builder.build(base_image);
-
-        // Step 3: 既存ファイルの上書き確認
-        let should_continue = self.file_repo.confirm_overwrite_if_needed(&config)?;
+        // Step 2: 既存ファイルの上書き確認（早期チェック）
+        let temp_config = config_builder.clone().build("temp".to_string());
+        let should_continue = self.file_repo.confirm_overwrite_if_needed(&temp_config)?;
         if !should_continue {
             return Ok(GenerateDevContainerResponse {
                 success: false,
@@ -79,6 +71,15 @@ impl GenerateDevContainerUseCase {
                 message: "ユーザーが処理をキャンセルしました".to_string(),
             });
         }
+
+        // Step 3: 必要に応じてベースイメージを対話的に選択
+        let base_image = if config_builder.needs_base_image() {
+            self.select_base_image_interactively().await?
+        } else {
+            config_builder.get_base_image().unwrap().clone()
+        };
+
+        let config = config_builder.build(base_image);
 
         // Step 4: 設定ファイルの生成
         let generated_files = DevContainerGenerator::generate_all_files(&config);

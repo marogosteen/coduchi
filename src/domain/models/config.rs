@@ -51,6 +51,7 @@ impl DevContainerConfig {
 }
 
 /// 設定構築のためのビルダー（ドメインサービス的な役割）
+#[derive(Clone)]
 pub struct ComposeConfigBuilder {
     dir: PathBuf,
     name: Option<String>,
