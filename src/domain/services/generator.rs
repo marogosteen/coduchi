@@ -1,4 +1,4 @@
-use crate::domain::models::{GeneratedFile, AppConfig, DevContainerConfig};
+use crate::domain::models::{GeneratedFile, ComposeConfig, DevContainerConfig};
 
 /// Dev Container設定ファイルのジェネレーター（ドメインサービス）
 /// 外部依存を持たない純粋なビジネスロジック
@@ -26,7 +26,7 @@ impl DevContainerGenerator {
     }
 
     /// compose.yamlの内容を生成する
-    pub fn generate_compose_yaml(app_config: &AppConfig) -> GeneratedFile {
+    pub fn generate_compose_yaml(app_config: &ComposeConfig) -> GeneratedFile {
         let content = format!(
             r#"services:
   app:
@@ -39,7 +39,7 @@ impl DevContainerGenerator {
       - ..:/workspaces/{}:cached
     command: sleep infinity
 "#,
-            app_config.container_name, 
+            app_config.image_name, 
             app_config.container_name, 
             app_config.dir_name
         );
@@ -54,9 +54,9 @@ impl DevContainerGenerator {
     }
 
     /// 全ての設定ファイルを一括生成する
-    pub fn generate_all_files(app_config: &AppConfig) -> Vec<GeneratedFile> {
+    pub fn generate_all_files(app_config: &ComposeConfig) -> Vec<GeneratedFile> {
         let devcontainer_config = DevContainerConfig::new(
-            app_config.container_name.clone(),
+            app_config.name.clone(),
             app_config.dir_name.clone(),
         );
 
@@ -73,13 +73,15 @@ mod tests {
     use super::*;
     use std::path::PathBuf;
 
-    fn create_test_config() -> AppConfig {
-        AppConfig::new(
+    fn create_test_config() -> ComposeConfig {
+    ComposeConfig::new(
             PathBuf::from("test-dir"),
-            "test-container".to_string(),
-            "test-dir".to_string(),
-            "ubuntu:latest".to_string(),
-            false,
+            "test-container".to_string(),      // name
+            "test-container".to_string(),      // container_name
+            "test-dir".to_string(),            // dir_name
+            "test-container".to_string(),      // image_name
+            "ubuntu:latest".to_string(),       // base_image
+            false,                             // force
         )
     }
 

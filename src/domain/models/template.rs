@@ -1,36 +1,36 @@
 use serde::{Deserialize, Serialize};
 
-/// テンプレート情報を表すドメインモデル
+/// Dev Containerテンプレートを表すドメインモデル
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Template {
+pub struct DevContainerTemplate {
     pub name: String,
     pub path: String,
 }
 
-impl Template {
+impl DevContainerTemplate {
     pub fn new(name: String, path: String) -> Self {
         Self { name, path }
     }
 }
 
-/// テンプレートの詳細情報を表すドメインモデル
+/// Dockerイメージ設定を表すドメインモデル
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct TemplateInfo {
-    pub image: String,
-    pub image_variant: String,
+pub struct ImageConfiguration {
+    pub base_image: String,
+    pub variant: String,
 }
 
-impl TemplateInfo {
-    pub fn new(image: String, image_variant: String) -> Self {
+impl ImageConfiguration {
+    pub fn new(base_image: String, variant: String) -> Self {
         Self {
-            image,
-            image_variant,
+            base_image,
+            variant,
         }
     }
 
-    /// テンプレート情報から最終的なDockerイメージ文字列を生成
-    pub fn resolve_image(&self) -> String {
-        self.image.replace("${VARIANT}", &self.image_variant)
+    /// バリアントを適用した最終的なDockerイメージ名を取得
+    pub fn resolve_final_image(&self) -> String {
+        self.base_image.replace("${VARIANT}", &self.variant)
     }
 }
 
@@ -39,31 +39,31 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_template_creation() {
-        let template = Template::new("ubuntu".to_string(), "src/ubuntu".to_string());
+    fn test_devcontainer_template_creation() {
+        let template = DevContainerTemplate::new("ubuntu".to_string(), "src/ubuntu".to_string());
         assert_eq!(template.name, "ubuntu");
         assert_eq!(template.path, "src/ubuntu");
     }
 
     #[test]
-    fn test_template_info_resolve_image() {
-        let template_info = TemplateInfo::new(
+    fn test_image_configuration_resolve_final_image() {
+        let config = ImageConfiguration::new(
             "mcr.microsoft.com/devcontainers/base:${VARIANT}".to_string(),
             "ubuntu-22.04".to_string(),
         );
         
-        let resolved = template_info.resolve_image();
+        let resolved = config.resolve_final_image();
         assert_eq!(resolved, "mcr.microsoft.com/devcontainers/base:ubuntu-22.04");
     }
 
     #[test]
-    fn test_template_info_no_variant() {
-        let template_info = TemplateInfo::new(
+    fn test_image_configuration_no_variant() {
+        let config = ImageConfiguration::new(
             "ubuntu:latest".to_string(),
             "latest".to_string(),
         );
         
-        let resolved = template_info.resolve_image();
+        let resolved = config.resolve_final_image();
         assert_eq!(resolved, "ubuntu:latest");
     }
 } 

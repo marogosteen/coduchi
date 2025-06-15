@@ -1,13 +1,13 @@
 use async_trait::async_trait;
 use anyhow::Result;
-use crate::domain::models::Template;
+use crate::domain::models::DevContainerTemplate;
 
 /// ユーザーインタラクションのための抽象サービス（ポート）
 /// DIPによりDomain層からInfrastructure層への依存を逆転させる
 #[async_trait]
 pub trait UserInteraction: Send + Sync {
-    /// テンプレート一覧からベースイメージを対話的に選択する
-    async fn select_base_image(&self, templates: Vec<Template>) -> Result<String>;
+    /// Dev Containerテンプレート一覧からベースイメージを対話的に選択する
+    async fn select_base_image(&self, templates: Vec<DevContainerTemplate>) -> Result<String>;
     
     /// ユーザーに確認を求める
     fn confirm(&self, message: &str) -> Result<bool>;
@@ -83,7 +83,7 @@ pub mod mock {
 
     #[async_trait]
     impl UserInteraction for MockUserInteraction {
-        async fn select_base_image(&self, templates: Vec<Template>) -> Result<String> {
+        async fn select_base_image(&self, templates: Vec<DevContainerTemplate>) -> Result<String> {
             if let Some(ref base_image) = self.selected_base_image {
                 Ok(base_image.clone())
             } else if !templates.is_empty() {

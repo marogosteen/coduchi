@@ -1,6 +1,6 @@
 use anyhow::Result;
 use std::path::Path;
-use crate::domain::models::{AppConfig, GeneratedFile};
+use crate::domain::models::{ComposeConfig, GeneratedFile};
 
 /// ファイル操作のための抽象リポジトリ（ポート）
 /// DIPによりDomain層からInfrastructure層への依存を逆転させる
@@ -9,7 +9,7 @@ pub trait FileRepository: Send + Sync {
     fn write_files(&self, dir: &Path, files: Vec<GeneratedFile>) -> Result<Vec<String>>;
     
     /// 既存ファイルの上書き確認を行う
-    fn confirm_overwrite_if_needed(&self, config: &AppConfig) -> Result<bool>;
+    fn confirm_overwrite_if_needed(&self, config: &ComposeConfig) -> Result<bool>;
     
     /// ファイルが存在するかチェック
     fn file_exists(&self, path: &Path) -> bool;
@@ -63,7 +63,7 @@ pub mod mock {
             Ok(files.into_iter().map(|f| f.filename).collect())
         }
 
-        fn confirm_overwrite_if_needed(&self, config: &AppConfig) -> Result<bool> {
+        fn confirm_overwrite_if_needed(&self, config: &ComposeConfig) -> Result<bool> {
             if config.force {
                 return Ok(true);
             }
