@@ -98,12 +98,25 @@ impl ComposeConfigBuilder {
     }
 
     pub fn build(self, base_image: String) -> ComposeConfig {
-        let dir_name = self
-            .dir
+        let dir_name = if self.dir.as_os_str() == "." {
+            // カレントディレクトリ（"."）の場合は、正規化してから取得
+            self.dir
+                .canonicalize()
+                .ok()
+                .and_then(|path| {
+                    path.file_name()
+                        .and_then(|name| name.to_str())
+                        .map(|s| s.to_string())
+                })
+                .unwrap_or_else(|| "unknown".to_string())
+        } else {
+            // その他の場合は従来通り
+            self.dir
             .file_name()
             .and_then(|name| name.to_str())
             .unwrap_or("unknown")
-            .to_string();
+                .to_string()
+        };
 
         let name = self.name.unwrap_or_else(|| dir_name.clone());
         let image_name = self.image_name.unwrap_or_else(|| name.clone());
