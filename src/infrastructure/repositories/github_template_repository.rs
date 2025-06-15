@@ -4,8 +4,8 @@ use base64::engine::general_purpose::STANDARD;
 use base64::Engine;
 use serde::Deserialize;
 use crate::domain::{
-    models::{Template, TemplateInfo},
-    ports::TemplateRepository,
+    models::{DevContainerTemplate, ImageConfiguration},
+    ports::DevContainerTemplateRepository,
 };
 
 /// GitHub APIのレスポンス内容を表す構造体
@@ -15,7 +15,7 @@ struct GitHubContent {
     pub encoding: String,
 }
 
-/// GitHub API経由でテンプレート情報を取得するリポジトリ実装
+/// GitHub API経由でDev Containerテンプレート情報を取得するリポジトリ実装
 pub struct GitHubTemplateRepository {
     client: reqwest::Client,
     base_url: String,
@@ -62,8 +62,8 @@ impl GitHubTemplateRepository {
         response.json().await.map_err(anyhow::Error::from)
     }
 
-    /// Base64エンコードされたdevcontainer.jsonをパースしてテンプレート情報を抽出する
-    fn parse_template_info(&self, content: GitHubContent) -> Result<TemplateInfo> {
+    /// Base64エンコードされたdevcontainer.jsonをパースしてイメージ設定情報を抽出する
+    fn parse_template_info(&self, content: GitHubContent) -> Result<ImageConfiguration> {
         if content.encoding != "base64" {
             return Err(anyhow::anyhow!("Unexpected content encoding"));
         }
@@ -80,23 +80,23 @@ impl GitHubTemplateRepository {
 
         let json: serde_json::Value = serde_json::from_str(&json_str)?;
 
-        let image = json["image"]
+        let base_image = json["image"]
             .as_str()
             .ok_or_else(|| anyhow::anyhow!("Image not found in devcontainer.json"))?;
 
-        let image_variant = json["imageVariant"]
+        let variant = json["imageVariant"]
             .as_str()
             .unwrap_or("latest")
             .to_string();
 
-        Ok(TemplateInfo::new(image.to_string(), image_variant))
+        Ok(ImageConfiguration::new(base_image.to_string(), variant))
     }
 }
 
 #[async_trait]
-impl TemplateRepository for GitHubTemplateRepository {
+impl DevContainerTemplateRepository for GitHubTemplateRepository {
     /// Dev Containerテンプレート一覧を取得する
-    async fn fetch_templates(&self) -> Result<Vec<Template>> {
+    async fn fetch_templates(&self) -> Result<Vec<DevContainerTemplate>> {
         let url = format!("{}/repos/devcontainers/templates/contents/src", self.base_url);
 
         let response = self.client
@@ -121,17 +121,17 @@ impl TemplateRepository for GitHubTemplateRepository {
         }
 
         let contents: Vec<GitHubDirContent> = serde_json::from_str(&text)?;
-        let templates: Vec<Template> = contents
+        let templates: Vec<DevContainerTemplate> = contents
             .into_iter()
             .filter(|content| content.content_type == "dir")
-            .map(|content| Template::new(content.name, content.path))
+            .map(|content| DevContainerTemplate::new(content.name, content.path))
             .collect();
 
         Ok(templates)
     }
 
-    /// 指定されたテンプレートの詳細情報を取得する
-    async fn fetch_template_info(&self, template_name: &str) -> Result<TemplateInfo> {
+    /// 指定されたテンプレートのイメージ設定情報を取得する
+    async fn fetch_template_info(&self, template_name: &str) -> Result<ImageConfiguration> {
         let content = self.fetch_devcontainer_json(template_name).await?;
         self.parse_template_info(content)
     }
@@ -201,10 +201,10 @@ mod tests {
             encoding: "base64".to_string(),
         };
 
-        let template_info = repository.parse_template_info(mock_content).unwrap();
-        
-        assert_eq!(template_info.image, "mcr.microsoft.com/devcontainers/base:${VARIANT}");
-        assert_eq!(template_info.image_variant, "ubuntu-22.04");
+        let result = repository.parse_template_info(mock_content).unwrap();
+        assert_eq!(result.base_image, "mcr.microsoft.com/devcontainers/base:${VARIANT}");
+        assert_eq!(result.variant, "ubuntu-22.04");
+        assert_eq!(result.resolve_final_image(), "mcr.microsoft.com/devcontainers/base:ubuntu-22.04");
     }
 
     #[tokio::test]
@@ -212,19 +212,18 @@ mod tests {
         let repository = GitHubTemplateRepository::new();
         let json_with_comments = r#"{
   // This is a comment
-  "image": "mcr.microsoft.com/devcontainers/base:${VARIANT}",
-  // Another comment
-  "imageVariant": "ubuntu-22.04"
+  "image": "ubuntu:${VARIANT}",
+  "imageVariant": "20.04"
 }"#;
-        
+
         let mock_content = GitHubContent {
             content: base64::engine::general_purpose::STANDARD.encode(json_with_comments),
             encoding: "base64".to_string(),
         };
 
-        let template_info = repository.parse_template_info(mock_content).unwrap();
-        
-        assert_eq!(template_info.image, "mcr.microsoft.com/devcontainers/base:${VARIANT}");
-        assert_eq!(template_info.image_variant, "ubuntu-22.04");
+        let result = repository.parse_template_info(mock_content).unwrap();
+        assert_eq!(result.base_image, "ubuntu:${VARIANT}");
+        assert_eq!(result.variant, "20.04");
+        assert_eq!(result.resolve_final_image(), "ubuntu:20.04");
     }
 } 

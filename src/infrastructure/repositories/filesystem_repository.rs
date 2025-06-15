@@ -3,7 +3,7 @@ use colored::*;
 use inquire::Confirm;
 use std::path::Path;
 use crate::domain::{
-    models::{AppConfig, GeneratedFile},
+            models::{ComposeConfig, GeneratedFile},
     ports::FileRepository,
 };
 
@@ -31,7 +31,7 @@ impl FileRepository for FileSystemRepository {
     }
 
     /// 既存ファイルの上書き確認を行う
-    fn confirm_overwrite_if_needed(&self, config: &AppConfig) -> Result<bool> {
+    fn confirm_overwrite_if_needed(&self, config: &ComposeConfig) -> Result<bool> {
         if config.force {
             return Ok(true);
         }
@@ -91,7 +91,7 @@ mod tests {
     use super::*;
     use std::fs::File;
     use tempfile::TempDir;
-    use crate::domain::models::{AppConfig, ConfigBuilder, GeneratedFile};
+    use crate::domain::models::{ComposeConfig, ComposeConfigBuilder, GeneratedFile};
 
     #[test]
     fn test_write_files() {
@@ -119,12 +119,14 @@ mod tests {
     fn test_confirm_overwrite_with_force() {
         let repository = FileSystemRepository::new();
         let temp_dir = TempDir::new().unwrap();
-        let config = AppConfig::new(
+        let config = ComposeConfig::new(
             temp_dir.path().to_path_buf(),
-            "test".to_string(),
-            "test".to_string(),
-            "ubuntu:latest".to_string(),
-            true, // force = true
+            "test".to_string(),          // name
+            "test".to_string(),          // container_name
+            "test".to_string(),          // dir_name
+            "test".to_string(),          // image_name
+            "ubuntu:latest".to_string(), // base_image
+            true,                        // force = true
         );
         
         // ファイルを作成
@@ -138,12 +140,14 @@ mod tests {
     fn test_confirm_overwrite_no_existing_files() {
         let repository = FileSystemRepository::new();
         let temp_dir = TempDir::new().unwrap();
-        let config = AppConfig::new(
+        let config = ComposeConfig::new(
             temp_dir.path().to_path_buf(),
-            "test".to_string(),
-            "test".to_string(),
-            "ubuntu:latest".to_string(),
-            false, // force = false
+            "test".to_string(),          // name
+            "test".to_string(),          // container_name
+            "test".to_string(),          // dir_name
+            "test".to_string(),          // image_name
+            "ubuntu:latest".to_string(), // base_image
+            false,                       // force = false
         );
         
         // 既存ファイルがない場合はtrue
@@ -185,7 +189,7 @@ mod tests {
     fn test_confirm_overwrite_if_needed_with_no_conflict() {
         let _repository = FileSystemRepository::new();
         let temp_dir = TempDir::new().unwrap();
-        let _config = ConfigBuilder::new(temp_dir.path().to_path_buf())
+        let _config = ComposeConfigBuilder::new(temp_dir.path().to_path_buf())
             .with_force(false)
             .build("ubuntu:latest".to_string());
         

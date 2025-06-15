@@ -21,8 +21,13 @@ pub type Result<T> = std::result::Result<T, anyhow::Error>;
 
 // メイン実行関数（バックワード互換性のため）
 pub async fn execute_generation(cli: presentation::Cli) -> anyhow::Result<()> {
-    let container = presentation::Container::new_production();
-    let use_case = container.create_use_case();
+    let container = presentation::Container::create();
+    let use_case = application::use_cases::GenerateDevContainerUseCase::new(
+        container.template_repository(),
+        container.file_repository(),
+        container.user_interaction(),
+        container.progress_reporter(),
+    );
     let request = cli.to_request();
     
     let response = use_case.execute(request).await?;

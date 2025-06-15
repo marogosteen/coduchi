@@ -45,6 +45,8 @@ coduchi [options]
 ### オプション
 - `-d, --dir <path>`: 設定ファイルを生成するディレクトリを指定（デフォルト: カレントディレクトリ）
 - `-n, --name <name>`: devcontainer.jsonのnameプロパティを指定（デフォルト: ディレクトリ名）
+- `--image-name <image>`: compose.yamlのimageフィールドを指定（デフォルト: nameと同じ値）
+- `--container-name <name>`: compose.yamlのcontainer_nameフィールドを指定（デフォルト: image-nameと同じ値）
 - `--base-image <image>`: ベースイメージを指定（指定しない場合は対話式で選択）
 - `-f, --force`: 既存ファイルの上書きを確認せずに実行
 
@@ -67,11 +69,21 @@ coduchi [options]
 - デフォルトは`--dir`で指定したディレクトリ名です
 - ショートカット: `-n`
 
+#### イメージ名指定（`--image-name`）
+- compose.yamlのimageフィールドを指定します
+- デフォルトは`--name`で指定した値と同じです
+- 独立したイメージ名を使用したい場合に指定します
+
+#### コンテナ名指定（`--container-name`）
+- compose.yamlのcontainer_nameフィールドを指定します
+- デフォルトは`--image-name`で指定した値と同じです
+- 独立したコンテナ名を使用したい場合に指定します
+
 ### 使用例
 
 #### オプションを指定した場合
 ```bash
-$ coduchi --name "My Dev Container" --dir my-directory
+$ coduchi --name "My Dev Container" --dir my-directory --image-name "my-app:dev" --container-name "dev-instance"
 ```
 
 生成されるdevcontainer.json:
@@ -80,6 +92,20 @@ $ coduchi --name "My Dev Container" --dir my-directory
   "name": "My Dev Container",
   "workspaceFolder": "/workspaces/my-directory"
 }
+```
+
+生成されるcompose.yaml:
+```yaml
+services:
+  app:
+    image: my-app:dev:latest
+    container_name: dev-instance
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ..:/workspaces/my-directory:cached
+    command: sleep infinity
 ```
 
 #### デフォルト使用の場合
@@ -103,7 +129,7 @@ $ coduchi
 **GenerateDevContainerUseCase**が以下のフローを実装：
 
 1. **設定構築** - `ConfigBuilder`による段階的な設定構築
-2. **ベースイメージ選択** - `TemplateRepository`ポート経由
+2. **ベースイメージ選択** - `DevContainerTemplateRepository`ポート経由
 3. **上書き確認** - `FileRepository`ポート経由  
 4. **ファイル生成** - `DevContainerGenerator`ドメインサービス
 5. **書き込み実行** - `FileRepository`ポート経由
@@ -112,8 +138,8 @@ $ coduchi
 ### 外部依存の抽象化（Domain Ports）
 ```rust
 #[async_trait]
-pub trait TemplateRepository: Send + Sync {
-    async fn fetch_templates(&self) -> Result<Vec<Template>>;
+pub trait DevContainerTemplateRepository: Send + Sync {
+    async fn fetch_templates(&self) -> Result<Vec<DevContainerTemplate>>;
 }
 
 #[async_trait] 
@@ -124,7 +150,7 @@ pub trait FileRepository: Send + Sync {
 
 #[async_trait]
 pub trait UserInteraction: Send + Sync {
-    async fn select_base_image(&self, templates: Vec<Template>) -> Result<String>;
+    async fn select_base_image(&self, templates: Vec<DevContainerTemplate>) -> Result<String>;
     fn show_progress(&self, message: &str);
 }
 
@@ -150,7 +176,7 @@ pub fn create() -> Container {
 // テスト環境構成  
 pub fn create_for_test() -> Container {
     Container {
-        template_repo: Arc::new(MockTemplateRepository::new()),
+        template_repo: Arc::new(MockDevContainerTemplateRepository::new()),
         file_repo: Arc::new(MockFileRepository::new()),
         user_interaction: Arc::new(MockUserInteraction::new()),
         progress_reporter: Arc::new(MockProgressReporter::new()),
@@ -179,7 +205,7 @@ pub fn create_for_test() -> Container {
 ```yaml
 services:
   app:
-    image: <name>:latest
+    image: <image-name>:latest
     container_name: <name>
     build:
       context: .
@@ -189,6 +215,12 @@ services:
     command: sleep infinity
 ```
 
+**設計方針**: 
+- サービス名は`app`で固定とする
+- シンプルな構成を保ち、一貫性を確保するため
+- Dev Containerの基本的な用途（単一の開発環境）に最適化
+- 複数サービスが必要な場合は、ユーザーが生成後に手動でカスタマイズ可能
+
 ### 3. Dockerfile
 ```dockerfile
 FROM <base-image>
@@ -197,7 +229,7 @@ FROM <base-image>
 ## ベースイメージ選択
 
 ### アーキテクチャ上の実装
-- **TemplateRepository**ポートによる抽象化
+- **DevContainerTemplateRepository**ポートによる抽象化
 - **GitHubTemplateRepository**による具象実装
 - **UserInteraction**ポートによる対話抽象化  
 - **CliUserInteraction**による具象実装
@@ -206,12 +238,12 @@ FROM <base-image>
 
 1. **Dev Container Template の一覧取得**
    - `GitHubTemplateRepository::fetch_templates()`実装
-   - GitHub APIを使用して `https://api.github.com/repos/devcontainers/templates/contents/src` からテンプレート一覧を取得
+   - GitHub APIを使用して `https://api.github.com/repos/devcontainers/templates/contents/src` からDev Containerテンプレート一覧を取得
    - レスポンスモデルは `doc/example/api/list_api_sample.json` を参照
 
 2. **テンプレート選択**
    - `UserInteraction::select_base_image()`ポート経由
-   - 取得したテンプレート一覧から `name` フィールドを表示
+   - 取得したDev Containerテンプレート一覧から `name` フィールドを表示
    - ユーザーに対話形式でテンプレートを選択させる
 
 3. **テンプレート情報の取得**
