@@ -189,6 +189,12 @@ services:
     command: sleep infinity
 ```
 
+**設計方針**: 
+- サービス名は`app`で固定とする
+- シンプルな構成を保ち、一貫性を確保するため
+- Dev Containerの基本的な用途（単一の開発環境）に最適化
+- 複数サービスが必要な場合は、ユーザーが生成後に手動でカスタマイズ可能
+
 ### 3. Dockerfile
 ```dockerfile
 FROM <base-image>
