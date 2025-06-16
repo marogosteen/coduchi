@@ -85,7 +85,7 @@ impl GenerateDevContainerUseCase {
         let generated_files = DevContainerGenerator::generate_all_files(&config);
 
         // Step 5: ファイルの書き込み
-        let written_files = self.file_repo.write_files(&config.dir, generated_files)?;
+        let written_files = self.file_repo.write_files(&config, generated_files)?;
 
         // Step 6: 進捗報告
         for filename in &written_files {

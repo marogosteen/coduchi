@@ -17,12 +17,20 @@ impl FileSystemRepository {
 }
 
 impl FileRepository for FileSystemRepository {
-    /// 生成されたファイルをディスクに書き込む
-    fn write_files(&self, dir: &Path, files: Vec<GeneratedFile>) -> Result<Vec<String>> {
+    /// 生成されたファイルを設定に基づいてディスクに書き込む
+    /// .devcontainer/ディレクトリが存在しない場合は自動的に作成する
+    fn write_files(&self, config: &ComposeConfig, files: Vec<GeneratedFile>) -> Result<Vec<String>> {
+        let output_dir = config.output_dir();
+        
+        // .devcontainer/ディレクトリが存在しない場合は作成
+        if !output_dir.exists() {
+            std::fs::create_dir_all(&output_dir)?;
+        }
+        
         let mut written_files = Vec::new();
         
         for file in files {
-            let file_path = dir.join(&file.filename);
+            let file_path = output_dir.join(&file.filename);
             std::fs::write(&file_path, &file.content)?;
             written_files.push(file.filename);
         }
@@ -31,20 +39,23 @@ impl FileRepository for FileSystemRepository {
     }
 
     /// 既存ファイルの上書き確認を行う
+    /// .devcontainer/ディレクトリ内のファイルをチェックする
     fn confirm_overwrite_if_needed(&self, config: &ComposeConfig) -> Result<bool> {
         if config.force {
             return Ok(true);
         }
         
         let target_files = ["devcontainer.json", "compose.yaml", "Dockerfile"];
-        let existing_files = self.get_existing_files(&config.dir, &target_files);
+        let output_dir = config.output_dir();
+        let existing_files = self.get_existing_files(&output_dir, &target_files);
         
         if existing_files.is_empty() {
             return Ok(true);
         }
         
         let message = format!(
-            "以下のファイルが既に存在します：\n{}\n上書きしますか？",
+            "以下のファイルが既に存在します（{}内）：\n{}\n上書きしますか？",
+            output_dir.display(),
             existing_files.join("\n")
         );
         
@@ -97,12 +108,21 @@ mod tests {
     fn test_write_files() {
         let repository = FileSystemRepository::new();
         let temp_dir = TempDir::new().unwrap();
+        let config = ComposeConfig::new(
+            temp_dir.path().to_path_buf(),
+            "test".to_string(),
+            "test".to_string(),
+            "test".to_string(),
+            "test".to_string(),
+            "ubuntu:latest".to_string(),
+            false,
+        );
         let files = vec![
             GeneratedFile::new("test.txt".to_string(), "test content".to_string()),
             GeneratedFile::new("test2.txt".to_string(), "test content 2".to_string()),
         ];
 
-        let result = repository.write_files(temp_dir.path(), files);
+        let result = repository.write_files(&config, files);
         assert!(result.is_ok());
 
         let written_files = result.unwrap();
@@ -110,9 +130,10 @@ mod tests {
         assert!(written_files.contains(&"test.txt".to_string()));
         assert!(written_files.contains(&"test2.txt".to_string()));
 
-        // ファイルが実際に作成されているか確認
-        assert!(repository.file_exists(&temp_dir.path().join("test.txt")));
-        assert!(repository.file_exists(&temp_dir.path().join("test2.txt")));
+        // ファイルが実際に作成されているか確認（.devcontainer/ディレクトリ内）
+        let output_dir = config.output_dir();
+        assert!(repository.file_exists(&output_dir.join("test.txt")));
+        assert!(repository.file_exists(&output_dir.join("test2.txt")));
     }
 
     #[test]
@@ -129,8 +150,10 @@ mod tests {
             true,                        // force = true
         );
         
-        // ファイルを作成
-        File::create(temp_dir.path().join("devcontainer.json")).unwrap();
+        // .devcontainer/ディレクトリにファイルを作成
+        let output_dir = config.output_dir();
+        std::fs::create_dir_all(&output_dir).unwrap();
+        File::create(output_dir.join("devcontainer.json")).unwrap();
         
         // forceフラグがtrueの場合は確認せずにtrue
         assert!(repository.confirm_overwrite_if_needed(&config).unwrap());
@@ -170,14 +193,16 @@ mod tests {
     fn test_get_existing_files() {
         let repository = FileSystemRepository::new();
         let temp_dir = TempDir::new().unwrap();
+        let output_dir = temp_dir.path().join(".devcontainer");
+        std::fs::create_dir_all(&output_dir).unwrap();
         
         // いくつかのファイルを作成
-        File::create(temp_dir.path().join("devcontainer.json")).unwrap();
-        File::create(temp_dir.path().join("compose.yaml")).unwrap();
+        File::create(output_dir.join("devcontainer.json")).unwrap();
+        File::create(output_dir.join("compose.yaml")).unwrap();
         // Dockerfileは作成しない
         
         let target_files = ["devcontainer.json", "compose.yaml", "Dockerfile"];
-        let existing = repository.get_existing_files(temp_dir.path(), &target_files);
+        let existing = repository.get_existing_files(&output_dir, &target_files);
         
         assert_eq!(existing.len(), 2);
         assert!(existing.contains(&"devcontainer.json".to_string()));

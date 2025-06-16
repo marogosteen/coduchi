@@ -5,8 +5,9 @@ use crate::domain::models::{ComposeConfig, GeneratedFile};
 /// ファイル操作のための抽象リポジトリ（ポート）
 /// DIPによりDomain層からInfrastructure層への依存を逆転させる
 pub trait FileRepository: Send + Sync {
-    /// 生成されたファイルをディスクに書き込む
-    fn write_files(&self, dir: &Path, files: Vec<GeneratedFile>) -> Result<Vec<String>>;
+    /// 生成されたファイルを設定に基づいてディスクに書き込む
+    /// 設定内の出力ディレクトリ（.devcontainer/）に自動でファイルを配置する
+    fn write_files(&self, config: &ComposeConfig, files: Vec<GeneratedFile>) -> Result<Vec<String>>;
     
     /// 既存ファイルの上書き確認を行う
     fn confirm_overwrite_if_needed(&self, config: &ComposeConfig) -> Result<bool>;
@@ -56,7 +57,7 @@ pub mod mock {
     }
 
     impl FileRepository for MockFileRepository {
-        fn write_files(&self, _dir: &Path, files: Vec<GeneratedFile>) -> Result<Vec<String>> {
+        fn write_files(&self, _config: &ComposeConfig, files: Vec<GeneratedFile>) -> Result<Vec<String>> {
             if self.write_should_fail {
                 return Err(anyhow::anyhow!("Mock write failure"));
             }
@@ -69,10 +70,11 @@ pub mod mock {
             }
 
             let target_files = ["devcontainer.json", "compose.yaml", "Dockerfile"];
+            let output_dir = config.output_dir();
             let has_existing = target_files
                 .iter()
                 .any(|&file| {
-                    let full_path = config.dir.join(file).to_string_lossy().to_string();
+                    let full_path = output_dir.join(file).to_string_lossy().to_string();
                     self.existing_files.contains(&full_path)
                 });
 

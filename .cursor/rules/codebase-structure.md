@@ -4,6 +4,8 @@
 CoduchiはDev Containerの設定ファイル（devcontainer.json、compose.yaml、Dockerfile）を自動生成するRustクライアントツールです。
 **軽量オニオンアーキテクチャ + 依存性逆転の原則（DIP）**を採用し、高い保守性と拡張性を実現しています。
 
+**ファイル出力先**: 指定されたプロジェクトディレクトリ内の`.devcontainer/`サブディレクトリに設定ファイルを生成します。
+
 ## 🏗️ アーキテクチャ概要
 
 ### 軽量オニオンアーキテクチャ + DIP
@@ -165,8 +167,8 @@ pub trait DevContainerTemplateRepository: Send + Sync {
 
 #[async_trait]
 pub trait FileRepository: Send + Sync {
-    fn write_files(&self, dir: &Path, files: Vec<GeneratedFile>) -> Result<Vec<String>>;
-    fn confirm_overwrite_if_needed(&self, config: &AppConfig) -> Result<bool>;
+    fn write_files(&self, config: &ComposeConfig, files: Vec<GeneratedFile>) -> Result<Vec<String>>;
+    fn confirm_overwrite_if_needed(&self, config: &ComposeConfig) -> Result<bool>;
 }
 
 #[async_trait]
@@ -220,8 +222,9 @@ pub struct FileSystemRepository;
 
 #[async_trait]
 impl FileRepository for FileSystemRepository {
-    fn write_files(&self, dir: &Path, files: Vec<GeneratedFile>) -> Result<Vec<String>> {
-        // ファイルシステム具象実装
+    fn write_files(&self, config: &ComposeConfig, files: Vec<GeneratedFile>) -> Result<Vec<String>> {
+        // .devcontainer/ディレクトリへのファイルシステム具象実装
+        // ディレクトリ自動作成機能を含む
     }
 }
 ```
@@ -316,7 +319,8 @@ async fn test_generate_devcontainer_use_case() {
 #[test]
 fn test_filesystem_repository() {
     let repo = FileSystemRepository::new();
-    let result = repo.write_files(&temp_dir, files);
+    let config = ComposeConfig::new(/* ... */);
+    let result = repo.write_files(&config, files);
     assert!(result.is_ok());
 }
 ```

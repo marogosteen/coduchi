@@ -43,7 +43,7 @@ coduchi [options]
 ```
 
 ### オプション
-- `-d, --dir <path>`: 設定ファイルを生成するディレクトリを指定（デフォルト: カレントディレクトリ）
+- `-d, --dir <path>`: プロジェクトのディレクトリを指定（デフォルト: カレントディレクトリ、設定ファイルは`.devcontainer/`サブディレクトリに生成）
 - `-n, --name <name>`: devcontainer.jsonのnameプロパティを指定（デフォルト: ディレクトリ名）
 - `--image-name <image>`: compose.yamlのimageフィールドを指定（デフォルト: nameと同じ値）
 - `--container-name <name>`: compose.yamlのcontainer_nameフィールドを指定（デフォルト: image-nameと同じ値）
@@ -53,16 +53,18 @@ coduchi [options]
 ### オプションの詳細
 
 #### `--force` オプション
-- 既存のファイル（devcontainer.json、compose.yaml、Dockerfile）を強制的に上書きします
+- 既存のファイル（`.devcontainer/`ディレクトリ内のdevcontainer.json、compose.yaml、Dockerfile）を強制的に上書きします
 - 指定しない場合、既存ファイルが存在すると上書きしません
 - ショートカット: `-f`
 
 #### ディレクトリ指定（`--dir`）
-- 設定ファイルを生成するディレクトリを指定します
+- プロジェクトのディレクトリを指定します
 - デフォルトはコマンドを実行したディレクトリ（cwd）です
 - ショートカット: `-d`
+- **実際の設定ファイルは指定ディレクトリ内の`.devcontainer/`サブディレクトリに生成されます**
+- `.devcontainer/`ディレクトリが存在しない場合は自動的に作成されます
 - workspaceFolderは指定したディレクトリ名に基づいて自動設定されます
-  - 例: `--dir myapp` → `"workspaceFolder": "/workspaces/myapp"`
+  - 例: `--dir myapp` → `.devcontainer/`内に設定ファイル生成、`"workspaceFolder": "/workspaces/myapp"`
 
 #### 名前指定（`--name`）
 - devcontainer.jsonのnameプロパティを指定します
@@ -86,15 +88,24 @@ coduchi [options]
 $ coduchi --name "My Dev Container" --dir my-directory --image-name "my-app:dev" --container-name "dev-instance"
 ```
 
-生成されるdevcontainer.json:
+以下のファイルが `my-directory/.devcontainer/` ディレクトリに生成されます：
+
+生成されるdevcontainer.json (`my-directory/.devcontainer/devcontainer.json`):
 ```json
 {
   "name": "My Dev Container",
-  "workspaceFolder": "/workspaces/my-directory"
+  "dockerComposeFile": "compose.yaml",
+  "workspaceFolder": "/workspaces/my-directory",
+  "service": "app",
+  "customizations": {
+    "vscode": {
+      "extensions": []
+    }
+  }
 }
 ```
 
-生成されるcompose.yaml:
+生成されるcompose.yaml (`my-directory/.devcontainer/compose.yaml`):
 ```yaml
 services:
   app:
@@ -108,6 +119,11 @@ services:
     command: sleep infinity
 ```
 
+生成されるDockerfile (`my-directory/.devcontainer/Dockerfile`):
+```dockerfile
+FROM <選択されたベースイメージ>
+```
+
 #### デフォルト使用の場合
 ```bash
 $ mkdir myapp
@@ -115,11 +131,20 @@ $ cd myapp
 $ coduchi
 ```
 
-生成されるdevcontainer.json:
+以下のファイルが `myapp/.devcontainer/` ディレクトリに生成されます：
+
+生成されるdevcontainer.json (`myapp/.devcontainer/devcontainer.json`):
 ```json
 {
   "name": "myapp",
-  "workspaceFolder": "/workspaces/myapp"
+  "dockerComposeFile": "compose.yaml",
+  "workspaceFolder": "/workspaces/myapp",
+  "service": "app",
+  "customizations": {
+    "vscode": {
+      "extensions": []
+    }
+  }
 }
 ```
 

@@ -32,6 +32,12 @@ impl ComposeConfig {
             force,
         }
     }
+
+    /// 出力先ディレクトリのパスを取得する
+    /// プロジェクトディレクトリ内の.devcontainer/サブディレクトリを返す
+    pub fn output_dir(&self) -> PathBuf {
+        self.dir.join(".devcontainer")
+    }
 }
 
 /// Dev Container設定のドメインモデル
